@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="vi">
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Open+Sans&display=swap');
+
+    @font-face {
+        font-family: 'Open Sans', sans-serif;
+        src: url('https://fonts.googleapis.com/css2?family=Open+Sans&display=swap');
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Open Sans', sans-serif;
+    }
+
+    body {
+        background-image: url('https://dochub.com/tedatsy/YpDBonNVrDx54D2RMX93r7/background-jpg');
+        background-repeat: no-repeat;
+        background-size: cover;
+        background-attachment: fixed;
+        background-position: center;
+        width: 100%;
+    }
+
+    ::-webkit-scrollbar {
+        width: 0;
+    }
+
+    main #chatForm {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translate(-50%);
+        display: grid;
+        grid-template-columns: 93% 7%;
+        width: 98%;
+        padding: 5px;
+        background-color: rgb(30, 30, 30);
+        border-radius: 10px;
+        box-shadow: 0 0 5px 0 lightgrey;
+    }
+
+    main #chatForm #chat-mess {
+        background: transparent;
+        color: white;
+        outline: none;
+        border: none;
+        font-size: small;
+        padding: 5px;
+    }
+
+    main #chatForm #send {
+        background: transparent;
+        color: white;
+        border: none;
+        font-size: large;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+
+    main #chatForm #send:hover {
+        background-color: rgb(60, 60, 60);
+        border-radius: 50px;
+    }
+
+    main #messages {
+        position: relative;
+        left: 50%;
+        transform: translate(-50%);
+        padding: 5px;
+        height: 92vh;
+        max-height: 92vh;
+        overflow-y: scroll;
+    }
+
+    main #messages li {
+        background-color: whitesmoke;
+        width: max-content;
+        max-width: 90%;
+        padding: 10px 5px;
+        border-radius: 15px;
+        box-shadow: 0 0 5px 0 white;
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 5px;
+    }
+
+    main #messages li .name-user {
+        color: grey;
+        width: max-content;
+        font-size: small;
+        cursor: pointer;
+        text-decoration: underline;
+    }
+
+    main .view-mode {
+        position: relative;
+        left: 50%;
+        transform: translate(-50%);
+        border-radius: 50%;
+        border: none;
+        background: transparent;
+        font-size: large;
+        cursor: pointer;
+        transition: 0.4s;
+        padding: 0 5px;
+        color: rgb(161, 161, 161);
+        background-color: rgba(80, 80, 80, 80%);
+    }
+    
+    main .view-mode:hover {
+        background-color: aliceblue;
+    }
+
+    main .on {
+        color: white;
+    }
+
+    main .on:hover {
+        background-color: rgba(200, 200, 200, 50%);
+    }
+
+    @media screen and (min-width: 600px) {
+        main #chatForm, main #messages {
+            width: 50%;
+        }
+    }
+</style>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Private Chat</title>
+</head>
+<body>
+    <main>
+        <button class="view-mode">
+            <ion-icon name="eye"></ion-icon>
+        </button>
+        <ul id="messages">
+
+        </ul>
+        <form id="chatForm">
+            <input type="text" id="chat-mess" placeholder="Chat something here...">
+            <button id="send">
+                <ion-icon name="send"></ion-icon>
+            </button>
+        </form>
+    </main>
+    <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        const name = prompt("Enter your nick name:");
+        socket.emit('client-connected-announce', name);
+
+        //Functions
+        const createMessage = (messages, mess) => {
+            for(let i=0; i<mess.length; i++) {
+                let j = i;
+                if(i > 0 && mess[i].name === mess[--j].name) {
+                    messages.innerHTML += `
+                    <li>
+                        <span class="mess">${mess[i].message}</span>
+                    </li>
+                    `
+                }
+                else {
+                    messages.innerHTML += `
+                    <li>
+                        <span class="name-user">${mess[i].name}</span>
+                        <span class="mess">${mess[i].message}</span>
+                    </li>
+                    `
+                }
+            }
+        }
+
+        const checkSpell = async (txt) => {
+            return await new Promise((resolve, reject) => {
+                if(txt !== "")
+                    for(let i=0; i<txt.length; i++) {
+                        if(txt[i] !== " ") {
+                            resolve(txt);
+                        }
+                    }
+
+                reject(false);
+            })
+        }
+
+        //Get elements from chat form
+        const chatForm = document.getElementById("chatForm");
+        const chatMess = document.getElementById("chat-mess");
+        const messages = document.getElementById("messages");
+        const viewMode = document.querySelector(".view-mode");
+
+        //Loading the datas
+        socket.on("loading-messages", (mess) => {
+            messages.innerHTML = '';
+
+            createMessage(messages, mess);
+            if(viewMode.className !== "view-mode on") messages.scrollTop = messages.scrollHeight
+        })
+
+        //View mode toggle
+        viewMode.addEventListener("click", () => {
+            if(viewMode.className === "view-mode on") viewMode.classList.remove("on");
+            else viewMode.classList.toggle("on");
+        })
+
+        //Chatting event
+        chatForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+
+            const message = chatMess.value;
+
+            checkSpell(message)
+            .then(message => {
+                socket.emit("user-chat", {
+                    name: name,
+                    message: message
+                });
+            })
+            chatMess.value = '';
+        })
+    </script>
+</body>
+</html>
